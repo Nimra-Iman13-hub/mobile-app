@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device Preview</title>
+<style>
+  :root {
+    --bg: #f4f4f5;
+    --panel: #ffffff;
+    --border: #e4e4e7;
+    --text: #18181b;
+    --muted: #71717a;
+    --accent: #4f46e5;
+    --accent-fg: #ffffff;
+    --bezel: #1c1c1f;
+    --bezel-edge: #3f3f46;
+    --shadow: 0 18px 50px rgba(0, 0, 0, .18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f0f11;
+      --panel: #18181b;
+      --border: #2a2a2e;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #818cf8;
+      --accent-fg: #11111b;
+      --bezel: #000000;
+      --bezel-edge: #52525b;
+      --shadow: 0 18px 50px rgba(0, 0, 0, .55);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f0f11;
+    --panel: #18181b;
+    --border: #2a2a2e;
+    --text: #f4f4f5;
+    --muted: #a1a1aa;
+    --accent: #818cf8;
+    --accent-fg: #11111b;
+    --bezel: #000000;
+    --bezel-edge: #52525b;
+    --shadow: 0 18px 50px rgba(0, 0, 0, .55);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    align-items: flex-end;
+    padding: 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .title { font-weight: 650; font-size: 16px; margin-right: auto; }
+  .title small {
+    display: block;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field > span {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+  }
+
+  select, button {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    cursor: pointer;
+  }
+  button:hover, select:hover { border-color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: transparent;
+    font-weight: 600;
+  }
+
+  main {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    padding: 28px 16px 40px;
+  }
+
+  /* The frame scales as a whole via a CSS variable, so the iframe keeps its
+     exact CSS pixel dimensions — the app still believes it is on a 414px
+     phone even when the frame is shrunk to fit a laptop screen. */
+  .stage { transform: scale(var(--zoom, 1)); transform-origin: top center; }
+
+  .device {
+    position: relative;
+    background: var(--bezel);
+    border: 1px solid var(--bezel-edge);
+    border-radius: 44px;
+    padding: 12px;
+    box-shadow: var(--shadow);
+  }
+  .device::after {
+    /* Notch. Cosmetic only — the app is not inset behind it. */
+    content: "";
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110px;
+    height: 20px;
+    background: var(--bezel);
+    border-radius: 0 0 14px 14px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .device.landscape { border-radius: 36px; }
+  .device.landscape::after { display: none; }
+
+  iframe {
+    display: block;
+    border: 0;
+    border-radius: 32px;
+    background: #fff;
+    width: var(--w);
+    height: var(--h);
+  }
+
+  .meta {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .offline {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-left: 3px solid #ef4444;
+    border-radius: 10px;
+    background: var(--panel);
+    font-size: 14px;
+  }
+  .offline code {
+    display: block;
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-size: 12.5px;
+    overflow-x: auto;
+  }
+  .hidden { display: none; }
+
+  @media (max-width: 560px) {
+    header { padding: 12px; }
+    .title { width: 100%; margin-bottom: 4px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    Device preview
+    <small id="target">Serving from http://127.0.0.1:8080</small>
+  </div>
+
+  <label class="field">
+    <span>Device</span>
+    <select id="device"></select>
+  </label>
+
+  <label class="field">
+    <span>Zoom</span>
+    <select id="zoom">
+      <option value="auto">Fit screen</option>
+      <option value="1">100%</option>
+      <option value="0.85">85%</option>
+      <option value="0.7">70%</option>
+      <option value="0.5">50%</option>
+    </select>
+  </label>
+
+  <button id="rotate" type="button">Rotate</button>
+  <button id="reload" class="primary" type="button">Reload app</button>
+</header>
+
+<main>
+  <div id="offline" class="offline hidden">
+    <strong>Can't reach the app.</strong>
+    The Flutter dev server isn't responding on port 8080. Start it with:
+    <code>flutter run -d web-server --web-port 8080 --web-hostname 127.0.0.1</code>
+  </div>
+
+  <div id="stage" class="stage">
+    <div id="device-frame" class="device">
+      <iframe id="app" title="App preview" src="http://127.0.0.1:8080"></iframe>
+    </div>
+    <div class="meta" id="meta"></div>
+  </div>
+</main>
+
+<script>
+  // Logical CSS pixel sizes, which is what the app actually lays out against.
+  // Not physical pixels: an iPhone 11 is 828x1792 hardware but 414x896 CSS.
+  const DEVICES = [
+    { id: 'iphone11',  name: 'iPhone 11 / XR',   w: 414, h: 896 },
+    { id: 'iphone14',  name: 'iPhone 14 Pro',    w: 393, h: 852 },
+    { id: 'iphonese',  name: 'iPhone SE',        w: 375, h: 667 },
+    { id: 'pixel7',    name: 'Pixel 7',          w: 412, h: 915 },
+    { id: 'galaxys21', name: 'Galaxy S21',       w: 360, h: 800 },
+    { id: 'ipadmini',  name: 'iPad mini',        w: 768, h: 1024 },
+  ];
+
+  const APP_URL = 'http://127.0.0.1:8080';
+
+  const deviceSelect = document.getElementById('device');
+  const zoomSelect = document.getElementById('zoom');
+  const frame = document.getElementById('device-frame');
+  const stage = document.getElementById('stage');
+  const appFrame = document.getElementById('app');
+  const meta = document.getElementById('meta');
+  const offline = document.getElementById('offline');
+
+  let landscape = false;
+
+  for (const d of DEVICES) {
+    const option = document.createElement('option');
+    option.value = d.id;
+    option.textContent = `${d.name} — ${d.w}x${d.h}`;
+    deviceSelect.append(option);
+  }
+  // Default to the iPhone 11, which is the device this project targets.
+  deviceSelect.value = 'iphone11';
+
+  function currentDevice() {
+    return DEVICES.find((d) => d.id === deviceSelect.value) ?? DEVICES[0];
+  }
+
+  function apply() {
+    const d = currentDevice();
+    const w = landscape ? d.h : d.w;
+    const h = landscape ? d.w : d.h;
+
+    appFrame.style.setProperty('--w', w + 'px');
+    appFrame.style.setProperty('--h', h + 'px');
+    frame.classList.toggle('landscape', landscape);
+
+    let zoom;
+    if (zoomSelect.value === 'auto') {
+      // Leave room for the header, the bezel padding and the caption.
+      const availableH = window.innerHeight - 190;
+      const availableW = window.innerWidth - 48;
+      zoom = Math.min(1, availableH / (h + 24), availableW / (w + 24));
+    } else {
+      zoom = parseFloat(zoomSelect.value);
+    }
+    stage.style.setProperty('--zoom', zoom.toFixed(3));
+
+    meta.textContent =
+      `${d.name} · ${w}x${h} CSS px · ${Math.round(zoom * 100)}% · ` +
+      (landscape ? 'landscape' : 'portrait');
+  }
+
+  deviceSelect.addEventListener('change', apply);
+  zoomSelect.addEventListener('change', apply);
+  document.getElementById('rotate').addEventListener('click', () => {
+    landscape = !landscape;
+    apply();
+  });
+  document.getElementById('reload').addEventListener('click', () => {
+    // Reassigning src forces a reload; the iframe is cross-origin-ish enough
+    // that reaching into contentWindow.location is not reliable.
+    appFrame.src = APP_URL + '?t=' + Date.now();
+  });
+  window.addEventListener('resize', () => {
+    if (zoomSelect.value === 'auto') apply();
+  });
+
+  // Tell the user plainly when the dev server is down, rather than leaving a
+  // blank rectangle that looks like a broken app.
+  async function checkServer() {
+    try {
+      await fetch(APP_URL, { mode: 'no-cors', cache: 'no-store' });
+      offline.classList.add('hidden');
+      stage.classList.remove('hidden');
+    } catch {
+      offline.classList.remove('hidden');
+      stage.classList.add('hidden');
+    }
+  }
+
+  apply();
+  checkServer();
+</script>
+</body>
+</html>

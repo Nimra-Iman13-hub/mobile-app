@@ -1,0 +1,57 @@
+workflows:
+  ios-unsigned:
+    name: iOS unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Fetch packages
+        script: flutter pub get
+
+      - name: Analyze and test
+        script: |
+          flutter analyze
+          flutter test
+
+      # Signing on CI would need a paid Apple Developer Program membership to
+      # generate provisioning profiles. Building unsigned and letting
+      # Sideloadly re-sign with a free Apple ID avoids that entirely.
+      - name: Build unsigned iOS app
+        script: flutter build ios --release --no-codesign
+
+      # --no-codesign emits a .app, not a .ipa. An .ipa is just a zip with the
+      # app inside a top-level Payload/ directory, so build one by hand.
+      - name: Wrap the .app into an .ipa
+        script: |
+          set -euo pipefail
+          cd build/ios/iphoneos
+
+          if [ ! -d "Runner.app" ]; then
+            echo "Runner.app missing — the iOS build did not produce an app bundle."
+            ls -la
+            exit 1
+          fi
+
+          mkdir -p Payload
+          mv Runner.app Payload/
+          zip -r reminders-unsigned.ipa Payload > /dev/null
+          echo "Built: $(ls -lh reminders-unsigned.ipa | awk '{print $5}')"
+
+    artifacts:
+      - build/ios/iphoneos/*.ipa
+      - flutter_drive.log
+
+    publishing:
+      email:
+        recipients:
+          # Gets the .ipa emailed on each build; you can also just download it
+          # from the Codemagic build page.
+          - microinformaticscode@gmail.com
+        notify:
+          success: true
+          failure: true
